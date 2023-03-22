@@ -4,6 +4,12 @@
 
 magic-conch is a Telegram bot powered by Azure Cognitive Services.
 
+## Features
+
+- Integrates with ChatGPT using Azure Cognitive Services. **No OpenAI API support**, as there are too many equivalents.
+- Support both one-to-one chat and group chat. For group chat, must use `/chat` to trigger magic conch's response.
+- Use `/reset` to reset the conversation history. Each chat maintains its own conversation context.
+
 ## Usage
 
 1. Clone this repo
@@ -32,12 +38,6 @@ magic-conch is a Telegram bot powered by Azure Cognitive Services.
 ```
 
 3. Run with `go run .` or build an executable `go build .`
-
-## Features
-
-- Integrates with ChatGPT using Azure Cognitive Services. No OpenAI API support, as there are too many equivalents.
-- Support both one-to-one chat and group chat. For group chat, must use `/chat` to trigger magic conch's response.
-- Use `/reset` to reset the conversation history. Each chat maintains its own conversation context.
 
 ## License
 
