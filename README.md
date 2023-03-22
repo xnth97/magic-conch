@@ -8,7 +8,7 @@ magic-conch is a Telegram bot powered by Azure Cognitive Services.
 
 1. Clone this repo
 
-2. Fill in `config.json` with your own information. You must have a valid Azure model deployment. Please see __Prerequisiter__ section of [Azure documentation](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/chatgpt-quickstart?tabs=command-line&pivots=rest-api). An example is like:
+2. Copy `EXAMPLE_config.json` as `config.json` and fill in with your own information. You must have a valid Azure model deployment. Please see __Prerequisiter__ section of [Azure documentation](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/chatgpt-quickstart?tabs=command-line&pivots=rest-api). An example is like:
 
 ```js
 {
@@ -20,6 +20,7 @@ magic-conch is a Telegram bot powered by Azure Cognitive Services.
     "api_version": "2023-03-15-preview",
     // This value can be found in the Keys & Endpoint section when examining your resource from the Azure portal. You can use either KEY1 or KEY2.
     "api_key": "AZURE_API_KEY_HERE",
+    // Telegram Bot API token.
     "telegram_api_key": "TELEGRAM_API_KEY_HERE",
     // Telegram chat ID numbers that you want to have access to this bot. Left empty ([]) if you don't want any limitation.
     "allowed_chat_ids": [],
