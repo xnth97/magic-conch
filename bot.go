@@ -12,6 +12,7 @@ type Bot struct {
 	client         *Client
 	bot            *tgbotapi.BotAPI
 	allowedChatIds []int64
+	debug          bool
 }
 
 type Config struct {
@@ -25,7 +26,7 @@ type Config struct {
 	MaxTokens            int     `json:"max_tokens"`
 }
 
-func NewBot(c Config) *Bot {
+func NewBot(c Config, debug bool) *Bot {
 	clientConfig := DefaultConfig()
 	if c.PastMessagesIncluded != 0 {
 		clientConfig.PastMessagesIncluded = c.PastMessagesIncluded
@@ -47,10 +48,13 @@ func NewBot(c Config) *Bot {
 		panic(err)
 	}
 
+	bot.Debug = debug
+
 	return &Bot{
 		client:         client,
 		bot:            bot,
 		allowedChatIds: c.AllowedChatIds,
+		debug:          debug,
 	}
 }
 
@@ -64,8 +68,6 @@ func (b *Bot) Start() {
 
 	fmt.Println("Why don't you ask the magic conch?")
 
-	b.bot.Debug = false
-
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 30
 
@@ -77,8 +79,12 @@ func (b *Bot) Start() {
 		}
 
 		chatId := update.Message.Chat.ID
-		if len(b.allowedChatIds) > 0 && !allowedChatIds.Contains(chatId) {
-			b.bot.Send(tgbotapi.NewMessage(chatId, "Unauthorized Access"))
+		if allowedChatIds.Cardinality() > 0 && !allowedChatIds.Contains(chatId) {
+			msg := "Unauthorized Access"
+			if b.debug {
+				msg += fmt.Sprintf(" (chatId: %d)", chatId)
+			}
+			b.bot.Send(tgbotapi.NewMessage(chatId, msg))
 			continue
 		}
 
