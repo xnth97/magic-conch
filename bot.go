@@ -91,7 +91,7 @@ func (b *Bot) Start() {
 		text := update.Message.Text
 
 		// Reset conversation
-		if strings.HasPrefix(text, "/resetAll") {
+		if strings.HasPrefix(text, "/resetall") {
 			conversationManager.ResetAll(chatId)
 			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! Conversation and role are reset"))
 			continue
