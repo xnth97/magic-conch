@@ -91,9 +91,18 @@ func (b *Bot) Start() {
 		text := update.Message.Text
 
 		// Reset conversation
-		if strings.HasPrefix(text, "/reset") {
+		if strings.HasPrefix(text, "/resetAll") {
+			conversationManager.ResetAll(chatId)
+			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! Conversation and role are reset"))
+			continue
+		} else if strings.HasPrefix(text, "/reset") {
 			conversationManager.Reset(chatId)
 			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! Conversation is reset"))
+			continue
+		} else if strings.HasPrefix(text, "/role") {
+			role := strings.Trim(strings.ReplaceAll(text, "/role", ""), " ")
+			conversationManager.SetRole(chatId, role)
+			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! System prompt updated to: "+role))
 			continue
 		}
 

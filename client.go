@@ -18,9 +18,17 @@ type Conversation struct {
 	Messages []Message `json:"messages"`
 }
 
+type MessageRole string
+
+const (
+	MessageRoleUser      MessageRole = "user"
+	MessageRoleSystem    MessageRole = "system"
+	MessageRoleAssistant MessageRole = "assistant"
+)
+
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    MessageRole `json:"role"`
+	Content string      `json:"content"`
 }
 
 type ChatRequest struct {
@@ -63,7 +71,7 @@ func NewClientWithConfig(baseUrl string, model string, apiVersion string, apiKey
 
 func (c *Client) Chat(conversation *Conversation, prompt string) (string, error) {
 	conversation.Messages = append(conversation.Messages, Message{
-		Role:    "user",
+		Role:    MessageRoleUser,
 		Content: prompt,
 	})
 
@@ -100,7 +108,7 @@ func (c *Client) Chat(conversation *Conversation, prompt string) (string, error)
 
 	ans := chatCompletion.Choices[0].Message.Content
 	conversation.Messages = append(conversation.Messages, Message{
-		Role:    "assistant",
+		Role:    MessageRoleAssistant,
 		Content: ans,
 	})
 
