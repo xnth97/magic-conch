@@ -108,8 +108,8 @@ func (b *Bot) Start() {
 				query := strings.Trim(strings.ReplaceAll(text, "/chat", ""), " ")
 				err = b.Respond(chatId, query)
 				b.processError(chatId, err)
-				continue
 			}
+			continue
 		}
 
 		// Normal messages
