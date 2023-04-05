@@ -1,18 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/sashabaranov/go-openai"
 )
 
 type Bot struct {
-	client         *Client
-	bot            *tgbotapi.BotAPI
-	allowedChatIds []int64
-	debug          bool
+	client              *openai.Client
+	bot                 *tgbotapi.BotAPI
+	allowedChatIds      []int64
+	debug               bool
+	config              Config
+	conversationManager *ConversationManager
+	ctx                 context.Context
 }
 
 type Config struct {
@@ -27,21 +32,9 @@ type Config struct {
 }
 
 func NewBot(c Config, debug bool) *Bot {
-	clientConfig := DefaultConfig()
-	if c.PastMessagesIncluded != 0 {
-		clientConfig.PastMessagesIncluded = c.PastMessagesIncluded
-	}
-	if c.MaxTokens != 0 {
-		clientConfig.MaxTokens = c.MaxTokens
-	}
-
-	client := NewClientWithConfig(
-		c.BaseUrl,
-		c.Model,
-		c.ApiVersion,
-		c.ApiKey,
-		clientConfig,
-	)
+	clientConfig := openai.DefaultAzureConfig(c.ApiKey, c.BaseUrl, c.Model)
+	clientConfig.APIVersion = c.ApiVersion
+	client := openai.NewClientWithConfig(clientConfig)
 
 	bot, err := tgbotapi.NewBotAPI(c.TelegramApiKey)
 	if err != nil {
@@ -51,16 +44,17 @@ func NewBot(c Config, debug bool) *Bot {
 	bot.Debug = debug
 
 	return &Bot{
-		client:         client,
-		bot:            bot,
-		allowedChatIds: c.AllowedChatIds,
-		debug:          debug,
+		client:              client,
+		bot:                 bot,
+		allowedChatIds:      c.AllowedChatIds,
+		debug:               debug,
+		config:              c,
+		conversationManager: NewConversationManager(c.PastMessagesIncluded),
+		ctx:                 context.Background(),
 	}
 }
 
 func (b *Bot) Start() {
-	conversationManager := NewConversationManager()
-
 	allowedChatIds := mapset.NewSet[int64]()
 	for _, id := range b.allowedChatIds {
 		allowedChatIds.Add(id)
@@ -90,18 +84,20 @@ func (b *Bot) Start() {
 
 		text := update.Message.Text
 
+		var err error
+
 		// Reset conversation
 		if strings.HasPrefix(text, "/resetall") {
-			conversationManager.ResetAll(chatId)
+			b.conversationManager.ResetAll(chatId)
 			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! Conversation and role are reset"))
 			continue
 		} else if strings.HasPrefix(text, "/reset") {
-			conversationManager.Reset(chatId)
+			b.conversationManager.Reset(chatId)
 			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! Conversation is reset"))
 			continue
 		} else if strings.HasPrefix(text, "/role") {
 			role := strings.Trim(strings.ReplaceAll(text, "/role", ""), " ")
-			conversationManager.SetRole(chatId, role)
+			b.conversationManager.SetSystemMessage(chatId, role)
 			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! System prompt updated to: "+role))
 			continue
 		}
@@ -109,25 +105,43 @@ func (b *Bot) Start() {
 		// Group: only responds to /chat
 		if update.Message.Chat.IsGroup() {
 			if strings.HasPrefix(text, "/chat") {
-				conversation := conversationManager.GetConversation(chatId)
 				query := strings.Trim(strings.ReplaceAll(text, "/chat", ""), " ")
-				ans, err := b.client.Chat(conversation, query)
-				if err != nil {
-					b.bot.Send(tgbotapi.NewMessage(chatId, "Error: "+err.Error()))
-					continue
-				}
-				b.bot.Send(tgbotapi.NewMessage(chatId, ans))
+				err = b.Respond(chatId, query)
+				b.processError(chatId, err)
 				continue
 			}
 		}
 
 		// Normal messages
-		conversation := conversationManager.GetConversation(chatId)
-		ans, err := b.client.Chat(conversation, text)
-		if err != nil {
-			b.bot.Send(tgbotapi.NewMessage(chatId, "Error: "+err.Error()))
-			continue
-		}
-		b.bot.Send(tgbotapi.NewMessage(chatId, ans))
+		err = b.Respond(chatId, text)
+		b.processError(chatId, err)
+	}
+}
+
+func (b *Bot) Respond(chatId int64, query string) error {
+	var err error
+
+	conv := b.conversationManager.AddUserMessage(chatId, query)
+	req := openai.ChatCompletionRequest{
+		Model:     openai.GPT3Dot5Turbo,
+		MaxTokens: b.config.MaxTokens,
+		Messages:  conv.Messages,
+		Stream:    false,
+	}
+	resp, err := b.client.CreateChatCompletion(b.ctx, req)
+	if err != nil {
+		return err
+	}
+
+	response := resp.Choices[0].Message.Content
+	b.bot.Send(tgbotapi.NewMessage(chatId, response))
+
+	b.conversationManager.AddResponse(chatId, response)
+	return nil
+}
+
+func (b *Bot) processError(chatId int64, err error) {
+	if b.debug && err != nil {
+		b.bot.Send(tgbotapi.NewMessage(chatId, err.Error()))
 	}
 }
