@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -126,15 +128,51 @@ func (b *Bot) Respond(chatId int64, query string) error {
 		Model:     openai.GPT3Dot5Turbo,
 		MaxTokens: b.config.MaxTokens,
 		Messages:  conv.Messages,
-		Stream:    false,
+		Stream:    true,
 	}
-	resp, err := b.client.CreateChatCompletion(b.ctx, req)
+	stream, err := b.client.CreateChatCompletionStream(b.ctx, req)
 	if err != nil {
 		return err
 	}
+	defer stream.Close()
 
-	response := resp.Choices[0].Message.Content
-	b.bot.Send(tgbotapi.NewMessage(chatId, response))
+	var lastMessage tgbotapi.Message
+	response := ""
+	count := 0
+
+	sendOrUpdateMessage := func() {
+		if lastMessage.MessageID == 0 {
+			lastMessage, _ = b.bot.Send(tgbotapi.NewMessage(chatId, response))
+		} else {
+			lastMessage, _ = b.bot.Send(tgbotapi.NewEditMessageText(chatId, lastMessage.MessageID, response))
+		}
+	}
+
+	for {
+		resp, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			sendOrUpdateMessage()
+			break
+		}
+		if err != nil {
+			continue
+		}
+		delta := resp.Choices[0].Delta.Content
+		if b.debug {
+			fmt.Print(delta)
+		}
+		response += delta
+
+		if count == 0 {
+			sendOrUpdateMessage()
+		}
+
+		// Send message every 30 tokens
+		count += 1
+		if count == 30 {
+			count = 0
+		}
+	}
 
 	b.conversationManager.AddResponse(chatId, response)
 	return nil
