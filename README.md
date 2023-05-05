@@ -14,7 +14,13 @@ magic-conch is a Telegram bot powered by Azure Cognitive Services.
 
 ## Usage
 
-1. Clone this repo
+### Docker
+
+1. Clone this repo and `cd` into the directory. Build docker image.
+
+```sh
+docker build -t magic-conch .
+```
 
 2. Copy `EXAMPLE_config.json` as `config.json` and fill in with your own information. You must have a valid Azure model deployment. Please see __Prerequisite__ section of [Azure documentation](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/chatgpt-quickstart?tabs=command-line&pivots=rest-api). An example is like:
 
@@ -38,6 +44,18 @@ magic-conch is a Telegram bot powered by Azure Cognitive Services.
     "max_tokens": 800
 }
 ```
+
+3. Run the docker image with your own `config.json`.
+
+```sh
+docker run -v ./config.json:/app/config.json -d magic-conch
+```
+
+### Build
+
+1. Clone this repo and `cd` into directory.
+
+2. Create a `config.json` under the same directory following #2 in above Docker section.
 
 3. Run with `go run .` or build an executable `go build .`
 
