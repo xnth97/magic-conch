@@ -23,19 +23,30 @@ type Bot struct {
 }
 
 type Config struct {
-	BaseUrl              string  `json:"base_url"`
-	Model                string  `json:"model"`
-	ApiVersion           string  `json:"api_version"`
-	ApiKey               string  `json:"api_key"`
-	TelegramApiKey       string  `json:"telegram_api_key"`
-	AllowedChatIds       []int64 `json:"allowed_chat_ids"`
-	PastMessagesIncluded int     `json:"past_messages_included"`
-	MaxTokens            int     `json:"max_tokens"`
+	BaseUrl              string            `json:"base_url"`
+	Deployments          map[string]string `json:"deployments"`
+	ApiVersion           string            `json:"api_version"`
+	ApiKey               string            `json:"api_key"`
+	TelegramApiKey       string            `json:"telegram_api_key"`
+	AllowedChatIds       []int64           `json:"allowed_chat_ids"`
+	PastMessagesIncluded int               `json:"past_messages_included"`
+	MaxTokens            int               `json:"max_tokens"`
+	Temperature          float32           `json:"temperature"`
 }
 
 func NewBot(c Config, debug bool) *Bot {
-	clientConfig := openai.DefaultAzureConfig(c.ApiKey, c.BaseUrl, c.Model)
-	clientConfig.APIVersion = c.ApiVersion
+	clientConfig := openai.DefaultAzureConfig(c.ApiKey, c.BaseUrl)
+
+	if c.ApiVersion != "" {
+		clientConfig.APIVersion = c.ApiVersion
+	}
+
+	if c.Deployments != nil {
+		clientConfig.AzureModelMapperFunc = func(model string) string {
+			return c.Deployments[model]
+		}
+	}
+
 	client := openai.NewClientWithConfig(clientConfig)
 
 	bot, err := tgbotapi.NewBotAPI(c.TelegramApiKey)
@@ -125,10 +136,11 @@ func (b *Bot) Respond(chatId int64, query string) error {
 
 	conv := b.conversationManager.AddUserMessage(chatId, query)
 	req := openai.ChatCompletionRequest{
-		Model:     openai.GPT3Dot5Turbo,
-		MaxTokens: b.config.MaxTokens,
-		Messages:  conv.Messages,
-		Stream:    true,
+		Model:       openai.GPT3Dot5Turbo,
+		MaxTokens:   b.config.MaxTokens,
+		Messages:    conv.Messages,
+		Stream:      true,
+		Temperature: b.config.Temperature,
 	}
 	stream, err := b.client.CreateChatCompletionStream(b.ctx, req)
 	if err != nil {

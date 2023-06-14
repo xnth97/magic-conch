@@ -28,10 +28,12 @@ docker build -t magic-conch .
 {
     // This value can be found in the Keys & Endpoint section when examining your resource from the Azure portal. Alternatively, you can find the value in the Azure OpenAI Studio > Playground > Code View
     "base_url": "https://EXAMPLE.openai.azure.com",
-    // You will need to replace gpt-35-turbo with the deployment name you chose when you deployed the ChatGPT or GPT-4 models.
-    "model": "gpt-35-turbo",
-    // API version of the model, see on Azure docs.
-    "api_version": "2023-03-15-preview",
+    // Optional. Custom deployment IDs for models. If not provided, will use the default model name as deployment name.
+    "deployments": {
+        "gpt-3.5-turbo": "DEPLOYMENT_ID_HERE"
+    },
+    // Optional. API version of the model, see on Azure docs. If not provided, will use the latest version of go-openai package.
+    "api_version": "2023-05-15",
     // This value can be found in the Keys & Endpoint section when examining your resource from the Azure portal. You can use either KEY1 or KEY2.
     "api_key": "AZURE_API_KEY_HERE",
     // Telegram Bot API token.
@@ -41,7 +43,9 @@ docker build -t magic-conch .
     // How many messages can be included in one conversation. The more messages included, the better ChatGPT understands the context, however also more tokens it consumes.
     "past_messages_included": 10,
     // Max tokens can be used.
-    "max_tokens": 800
+    "max_tokens": 800,
+    // Controls randomness. Lowering the temperature means that the model produces more repetitive and deterministic responses. Increasing the temperature results in more unexpected or creative responses.
+    "temperature": 0.7
 }
 ```
 

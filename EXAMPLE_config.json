@@ -1,10 +1,9 @@
 {
     "base_url": "https://EXAMPLE.openai.azure.com",
-    "model": "gpt-35-turbo",
-    "api_version": "2023-03-15-preview",
     "api_key": "AZURE_API_KEY_HERE",
     "telegram_api_key": "TELEGRAM_API_KEY_HERE",
     "allowed_chat_ids": [],
     "past_messages_included": 10,
-    "max_tokens": 800
+    "max_tokens": 800,
+    "temperature": 0.7
 }
