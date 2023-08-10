@@ -11,6 +11,7 @@ magic-conch is a Telegram bot powered by Azure Cognitive Services.
 - Support both one-to-one chat and group chat. For group chat, must use `/chat` to trigger magic conch's response.
 - Use `/reset` to reset the conversation history. Each chat maintains its own conversation context.
 - Use `/role` to update the system prompt (the role of assistant).
+- Use `/draw` to generate an image using DALL-E.
 
 ## Usage
 
