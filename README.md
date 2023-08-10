@@ -26,14 +26,12 @@ docker build -t magic-conch .
 
 ```js
 {
+    // Whether to print / send debug information.
+    "is_debug": false,
     // This value can be found in the Keys & Endpoint section when examining your resource from the Azure portal. Alternatively, you can find the value in the Azure OpenAI Studio > Playground > Code View
     "base_url": "https://EXAMPLE.openai.azure.com",
-    // Optional. Custom deployment IDs for models. If not provided, will use the default model name as deployment name.
-    "deployments": {
-        "gpt-3.5-turbo": "DEPLOYMENT_ID_HERE"
-    },
-    // Optional. API version of the model, see on Azure docs. If not provided, will use the latest version of go-openai package.
-    "api_version": "2023-05-15",
+    // Deployment ID for the model.
+    "deployment_id": "gpt-35-turbo",
     // This value can be found in the Keys & Endpoint section when examining your resource from the Azure portal. You can use either KEY1 or KEY2.
     "api_key": "AZURE_API_KEY_HERE",
     // Telegram Bot API token.

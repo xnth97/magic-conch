@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/sashabaranov/go-openai"
+	"github.com/Azure/azure-sdk-for-go/sdk/ai/azopenai"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
 
 type Conversation struct {
-	Messages      []openai.ChatCompletionMessage
+	Messages      []azopenai.ChatMessage
 	SystemMessage string
 }
 
@@ -57,10 +58,10 @@ func (c *ConversationManager) getSystemMessage(id int64) string {
 
 func startConversation(systemMessage string) Conversation {
 	return Conversation{
-		Messages: []openai.ChatCompletionMessage{
+		Messages: []azopenai.ChatMessage{
 			{
-				Role:    openai.ChatMessageRoleSystem,
-				Content: systemMessage,
+				Role:    to.Ptr(azopenai.ChatRoleSystem),
+				Content: to.Ptr(systemMessage),
 			},
 		},
 		SystemMessage: systemMessage,
@@ -71,9 +72,9 @@ func (c *ConversationManager) AddUserMessage(id int64, userInput string) *Conver
 	conv := c.GetConversation(id)
 	conv.Messages = append(
 		conv.Messages,
-		openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleUser,
-			Content: userInput,
+		azopenai.ChatMessage{
+			Role:    to.Ptr(azopenai.ChatRoleUser),
+			Content: to.Ptr(userInput),
 		})
 	return conv
 }
@@ -82,13 +83,13 @@ func (c *ConversationManager) AddResponse(id int64, response string) {
 	conv := c.GetConversation(id)
 	conv.Messages = append(
 		conv.Messages,
-		openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleAssistant,
-			Content: response,
+		azopenai.ChatMessage{
+			Role:    to.Ptr(azopenai.ChatRoleAssistant),
+			Content: to.Ptr(response),
 		})
 
 	if len(conv.Messages) > c.pastMessagesIncluded && len(conv.Messages) > 3 {
 		// keep the system message, remove 2nd (user message) and 3rd (assistant response)
-		conv.Messages = append([]openai.ChatCompletionMessage{conv.Messages[0]}, conv.Messages[3:]...)
+		conv.Messages = append([]azopenai.ChatMessage{conv.Messages[0]}, conv.Messages[3:]...)
 	}
 }

@@ -7,60 +7,57 @@ import (
 	"io"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/ai/azopenai"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	mapset "github.com/deckarep/golang-set/v2"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/sashabaranov/go-openai"
 )
 
 type Bot struct {
-	client              *openai.Client
+	client              *azopenai.Client
 	bot                 *tgbotapi.BotAPI
 	allowedChatIds      []int64
-	debug               bool
 	config              Config
 	conversationManager *ConversationManager
 	ctx                 context.Context
 }
 
 type Config struct {
+	Debug                bool              `json:"is_debug"`
 	BaseUrl              string            `json:"base_url"`
+	DeploymentId         string            `json:"deployment_id"`
 	Deployments          map[string]string `json:"deployments"`
 	ApiVersion           string            `json:"api_version"`
 	ApiKey               string            `json:"api_key"`
 	TelegramApiKey       string            `json:"telegram_api_key"`
 	AllowedChatIds       []int64           `json:"allowed_chat_ids"`
 	PastMessagesIncluded int               `json:"past_messages_included"`
-	MaxTokens            int               `json:"max_tokens"`
+	MaxTokens            int32             `json:"max_tokens"`
 	Temperature          float32           `json:"temperature"`
 }
 
-func NewBot(c Config, debug bool) *Bot {
-	clientConfig := openai.DefaultAzureConfig(c.ApiKey, c.BaseUrl)
-
-	if c.ApiVersion != "" {
-		clientConfig.APIVersion = c.ApiVersion
+func NewBot(c Config) *Bot {
+	keyCredential, err := azopenai.NewKeyCredential(c.ApiKey)
+	if err != nil {
+		panic(err)
 	}
 
-	if c.Deployments != nil {
-		clientConfig.AzureModelMapperFunc = func(model string) string {
-			return c.Deployments[model]
-		}
+	client, err := azopenai.NewClientWithKeyCredential(c.BaseUrl, keyCredential, nil)
+	if err != nil {
+		panic(err)
 	}
-
-	client := openai.NewClientWithConfig(clientConfig)
 
 	bot, err := tgbotapi.NewBotAPI(c.TelegramApiKey)
 	if err != nil {
 		panic(err)
 	}
 
-	bot.Debug = debug
+	bot.Debug = c.Debug
 
 	return &Bot{
 		client:              client,
 		bot:                 bot,
 		allowedChatIds:      c.AllowedChatIds,
-		debug:               debug,
 		config:              c,
 		conversationManager: NewConversationManager(c.PastMessagesIncluded),
 		ctx:                 context.Background(),
@@ -88,7 +85,7 @@ func (b *Bot) Start() {
 		chatId := update.Message.Chat.ID
 		if allowedChatIds.Cardinality() > 0 && !allowedChatIds.Contains(chatId) {
 			msg := "Unauthorized Access"
-			if b.debug {
+			if b.config.Debug {
 				msg += fmt.Sprintf(" (chatId: %d)", chatId)
 			}
 			b.bot.Send(tgbotapi.NewMessage(chatId, msg))
@@ -113,6 +110,10 @@ func (b *Bot) Start() {
 			b.conversationManager.SetSystemMessage(chatId, role)
 			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! System prompt updated to: "+role))
 			continue
+		} else if strings.HasPrefix(text, "/draw") {
+			prompt := strings.Trim(strings.ReplaceAll(text, "/draw", ""), " ")
+			b.DrawImage(chatId, prompt)
+			continue
 		}
 
 		// Group: only responds to /chat
@@ -135,17 +136,20 @@ func (b *Bot) Respond(chatId int64, query string) error {
 	var err error
 
 	conv := b.conversationManager.AddUserMessage(chatId, query)
-	req := openai.ChatCompletionRequest{
-		Model:       openai.GPT3Dot5Turbo,
-		MaxTokens:   b.config.MaxTokens,
-		Messages:    conv.Messages,
-		Stream:      true,
-		Temperature: b.config.Temperature,
+
+	req := azopenai.ChatCompletionsOptions{
+		MaxTokens:    &b.config.MaxTokens,
+		Messages:     conv.Messages,
+		Temperature:  &b.config.Temperature,
+		DeploymentID: b.config.DeploymentId,
 	}
-	stream, err := b.client.CreateChatCompletionStream(b.ctx, req)
+
+	resp, err := b.client.GetChatCompletionsStream(b.ctx, req, nil)
 	if err != nil {
 		return err
 	}
+
+	stream := resp.ChatCompletionsStream
 	defer stream.Close()
 
 	var lastMessage tgbotapi.Message
@@ -161,7 +165,7 @@ func (b *Bot) Respond(chatId int64, query string) error {
 	}
 
 	for {
-		resp, err := stream.Recv()
+		resp, err := stream.Read()
 		if errors.Is(err, io.EOF) {
 			sendOrUpdateMessage()
 			break
@@ -169,13 +173,23 @@ func (b *Bot) Respond(chatId int64, query string) error {
 		if err != nil {
 			continue
 		}
-		delta := resp.Choices[0].Delta.Content
-		if b.debug {
+		if len(resp.Choices) == 0 {
+			continue
+		}
+
+		delta := ""
+		for _, choice := range resp.Choices {
+			if choice.Delta.Content != nil {
+				delta += *choice.Delta.Content
+			}
+		}
+
+		if b.config.Debug {
 			fmt.Print(delta)
 		}
 		response += delta
 
-		if count == 0 {
+		if count == 0 && response != "" {
 			sendOrUpdateMessage()
 		}
 
@@ -190,8 +204,26 @@ func (b *Bot) Respond(chatId int64, query string) error {
 	return nil
 }
 
+func (b *Bot) DrawImage(chatId int64, prompt string) {
+	req := azopenai.ImageGenerationOptions{
+		Prompt:         &prompt,
+		Size:           to.Ptr(azopenai.ImageSize256x256),
+		ResponseFormat: to.Ptr(azopenai.ImageGenerationResponseFormatURL),
+		N:              to.Ptr(int32(1)),
+	}
+
+	resp, err := b.client.CreateImage(b.ctx, req, nil)
+	if err != nil {
+		b.processError(chatId, err)
+	}
+
+	for _, generatedImage := range resp.Data {
+		b.bot.Send(tgbotapi.NewPhoto(chatId, tgbotapi.FileURL(*generatedImage.URL)))
+	}
+}
+
 func (b *Bot) processError(chatId int64, err error) {
-	if b.debug && err != nil {
+	if b.config.Debug && err != nil {
 		b.bot.Send(tgbotapi.NewMessage(chatId, err.Error()))
 	}
 }

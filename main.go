@@ -18,7 +18,6 @@ func main() {
 		panic(err)
 	}
 
-	const isDebug = false
-	b := NewBot(config, isDebug)
+	b := NewBot(config)
 	b.Start()
 }

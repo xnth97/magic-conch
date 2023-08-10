@@ -1,6 +1,8 @@
 {
+    "is_debug": false,
     "base_url": "https://EXAMPLE.openai.azure.com",
     "api_key": "AZURE_API_KEY_HERE",
+    "deployment_id": "gpt-35-turbo",
     "telegram_api_key": "TELEGRAM_API_KEY_HERE",
     "allowed_chat_ids": [],
     "past_messages_included": 10,
