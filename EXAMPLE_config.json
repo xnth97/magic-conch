@@ -7,5 +7,7 @@
     "allowed_chat_ids": [],
     "past_messages_included": 10,
     "max_tokens": 800,
-    "temperature": 0.7
+    "temperature": 0.7,
+    "image_deployment_name": "dall-e-3",
+    "image_size": "1024x1024"
 }

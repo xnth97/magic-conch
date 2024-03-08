@@ -24,17 +24,17 @@ type Bot struct {
 }
 
 type Config struct {
-	Debug                bool              `json:"is_debug"`
-	BaseUrl              string            `json:"base_url"`
-	DeploymentId         string            `json:"deployment_id"`
-	Deployments          map[string]string `json:"deployments"`
-	ApiVersion           string            `json:"api_version"`
-	ApiKey               string            `json:"api_key"`
-	TelegramApiKey       string            `json:"telegram_api_key"`
-	AllowedChatIds       []int64           `json:"allowed_chat_ids"`
-	PastMessagesIncluded int               `json:"past_messages_included"`
-	MaxTokens            int32             `json:"max_tokens"`
-	Temperature          float32           `json:"temperature"`
+	Debug                bool               `json:"is_debug"`
+	BaseUrl              string             `json:"base_url"`
+	DeploymentId         string             `json:"deployment_id"`
+	ApiKey               string             `json:"api_key"`
+	TelegramApiKey       string             `json:"telegram_api_key"`
+	AllowedChatIds       []int64            `json:"allowed_chat_ids"`
+	PastMessagesIncluded int                `json:"past_messages_included"`
+	MaxTokens            int32              `json:"max_tokens"`
+	Temperature          float32            `json:"temperature"`
+	ImageDeploymentName  string             `json:"image_deployment_name"`
+	ImageSize            azopenai.ImageSize `json:"image_size"`
 }
 
 func NewBot(c Config) *Bot {
@@ -93,7 +93,7 @@ func (b *Bot) Start() {
 
 		var err error
 
-		// Reset conversation
+		// Commands
 		if strings.HasPrefix(text, "/resetall") {
 			b.conversationManager.ResetAll(chatId)
 			b.bot.Send(tgbotapi.NewMessage(chatId, "Alright! Conversation and role are reset"))
@@ -110,6 +110,15 @@ func (b *Bot) Start() {
 		} else if strings.HasPrefix(text, "/draw") {
 			prompt := strings.Trim(strings.ReplaceAll(text, "/draw", ""), " ")
 			b.DrawImage(chatId, prompt)
+			b.conversationManager.SetLastDrawPrompt(chatId, prompt)
+			continue
+		} else if strings.HasPrefix(text, "/redraw") {
+			lastDrawPrompt := b.conversationManager.GetLastDrawPrompt(chatId)
+			if lastDrawPrompt != "" {
+				b.DrawImage(chatId, lastDrawPrompt)
+			} else {
+				b.bot.Send(tgbotapi.NewMessage(chatId, "Didn't find previous prompt."))
+			}
 			continue
 		}
 
@@ -204,10 +213,10 @@ func (b *Bot) Respond(chatId int64, query string) error {
 func (b *Bot) DrawImage(chatId int64, prompt string) {
 	req := azopenai.ImageGenerationOptions{
 		Prompt:         &prompt,
-		Size:           to.Ptr(azopenai.ImageSizeSize1024X1024),
+		Size:           to.Ptr(b.config.ImageSize),
 		ResponseFormat: to.Ptr(azopenai.ImageGenerationResponseFormatURL),
 		N:              to.Ptr(int32(1)),
-		DeploymentName: to.Ptr("dall-e-3"),
+		DeploymentName: to.Ptr(b.config.ImageDeploymentName),
 	}
 
 	resp, err := b.client.GetImageGenerations(b.ctx, req, nil)
@@ -221,7 +230,12 @@ func (b *Bot) DrawImage(chatId int64, prompt string) {
 }
 
 func (b *Bot) processError(chatId int64, err error) {
-	if b.config.Debug && err != nil {
-		b.bot.Send(tgbotapi.NewMessage(chatId, err.Error()))
+	if err == nil {
+		return
 	}
+	if b.config.Debug {
+		b.bot.Send(tgbotapi.NewMessage(chatId, err.Error()))
+		return
+	}
+	b.bot.Send(tgbotapi.NewMessage(chatId, "Response failed"))
 }

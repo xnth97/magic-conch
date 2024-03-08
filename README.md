@@ -11,7 +11,7 @@ magic-conch is a Telegram bot powered by Azure Cognitive Services.
 - Support both one-to-one chat and group chat. For group chat, must use `/chat` to trigger magic conch's response.
 - Use `/reset` to reset the conversation history. Each chat maintains its own conversation context.
 - Use `/role` to update the system prompt (the role of assistant).
-- Use `/draw` to generate an image using DALL-E.
+- Use `/draw` to generate an image using DALL-E and `/redraw` to regenerate using previous prompt.
 
 ## Usage
 
@@ -45,6 +45,10 @@ docker build -t magic-conch .
     "max_tokens": 800,
     // Controls randomness. Lowering the temperature means that the model produces more repetitive and deterministic responses. Increasing the temperature results in more unexpected or creative responses.
     "temperature": 0.7
+    // Deployment name of the image generation model.
+    "image_deployment_name": "dall-e-3",
+    // Size of image. Supported values could differ by different models. Please see `azopenai.ImageSize` for references.
+    "image_size": "1024x1024"
 }
 ```
 

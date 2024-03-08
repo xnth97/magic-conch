@@ -12,6 +12,7 @@ type Conversation struct {
 
 type ConversationManager struct {
 	conversations        map[int64]*Conversation
+	drawPrompts          map[int64]string
 	pastMessagesIncluded int
 }
 
@@ -20,6 +21,7 @@ const defaultSystemMessage = "You are a helpful assistant."
 func NewConversationManager(pastMessagesIncluded int) *ConversationManager {
 	return &ConversationManager{
 		conversations:        make(map[int64]*Conversation),
+		drawPrompts:          make(map[int64]string),
 		pastMessagesIncluded: pastMessagesIncluded,
 	}
 }
@@ -91,4 +93,12 @@ func (c *ConversationManager) AddResponse(id int64, response string) {
 		// keep the system message, remove 2nd (user message) and 3rd (assistant response)
 		conv.Messages = append([]azopenai.ChatRequestMessageClassification{conv.Messages[0]}, conv.Messages[3:]...)
 	}
+}
+
+func (c *ConversationManager) GetLastDrawPrompt(id int64) string {
+	return c.drawPrompts[id]
+}
+
+func (c *ConversationManager) SetLastDrawPrompt(id int64, prompt string) {
+	c.drawPrompts[id] = prompt
 }
