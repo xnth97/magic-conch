@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/ai/azopenai"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	mapset "github.com/deckarep/golang-set/v2"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -37,11 +38,7 @@ type Config struct {
 }
 
 func NewBot(c Config) *Bot {
-	keyCredential, err := azopenai.NewKeyCredential(c.ApiKey)
-	if err != nil {
-		panic(err)
-	}
-
+	keyCredential := azcore.NewKeyCredential(c.ApiKey)
 	client, err := azopenai.NewClientWithKeyCredential(c.BaseUrl, keyCredential, nil)
 	if err != nil {
 		panic(err)
@@ -138,10 +135,10 @@ func (b *Bot) Respond(chatId int64, query string) error {
 	conv := b.conversationManager.AddUserMessage(chatId, query)
 
 	req := azopenai.ChatCompletionsOptions{
-		MaxTokens:    &b.config.MaxTokens,
-		Messages:     conv.Messages,
-		Temperature:  &b.config.Temperature,
-		DeploymentID: b.config.DeploymentId,
+		MaxTokens:      &b.config.MaxTokens,
+		Messages:       conv.Messages,
+		Temperature:    &b.config.Temperature,
+		DeploymentName: &b.config.DeploymentId,
 	}
 
 	resp, err := b.client.GetChatCompletionsStream(b.ctx, req, nil)
@@ -207,12 +204,13 @@ func (b *Bot) Respond(chatId int64, query string) error {
 func (b *Bot) DrawImage(chatId int64, prompt string) {
 	req := azopenai.ImageGenerationOptions{
 		Prompt:         &prompt,
-		Size:           to.Ptr(azopenai.ImageSize256x256),
+		Size:           to.Ptr(azopenai.ImageSizeSize1024X1024),
 		ResponseFormat: to.Ptr(azopenai.ImageGenerationResponseFormatURL),
 		N:              to.Ptr(int32(1)),
+		DeploymentName: to.Ptr("dall-e-3"),
 	}
 
-	resp, err := b.client.CreateImage(b.ctx, req, nil)
+	resp, err := b.client.GetImageGenerations(b.ctx, req, nil)
 	if err != nil {
 		b.processError(chatId, err)
 	}

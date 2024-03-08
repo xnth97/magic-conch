@@ -6,7 +6,7 @@ import (
 )
 
 type Conversation struct {
-	Messages      []azopenai.ChatMessage
+	Messages      []azopenai.ChatRequestMessageClassification
 	SystemMessage string
 }
 
@@ -58,9 +58,8 @@ func (c *ConversationManager) getSystemMessage(id int64) string {
 
 func startConversation(systemMessage string) Conversation {
 	return Conversation{
-		Messages: []azopenai.ChatMessage{
-			{
-				Role:    to.Ptr(azopenai.ChatRoleSystem),
+		Messages: []azopenai.ChatRequestMessageClassification{
+			&azopenai.ChatRequestSystemMessage{
 				Content: to.Ptr(systemMessage),
 			},
 		},
@@ -72,10 +71,10 @@ func (c *ConversationManager) AddUserMessage(id int64, userInput string) *Conver
 	conv := c.GetConversation(id)
 	conv.Messages = append(
 		conv.Messages,
-		azopenai.ChatMessage{
-			Role:    to.Ptr(azopenai.ChatRoleUser),
-			Content: to.Ptr(userInput),
-		})
+		&azopenai.ChatRequestUserMessage{
+			Content: azopenai.NewChatRequestUserMessageContent(userInput),
+		},
+	)
 	return conv
 }
 
@@ -83,13 +82,13 @@ func (c *ConversationManager) AddResponse(id int64, response string) {
 	conv := c.GetConversation(id)
 	conv.Messages = append(
 		conv.Messages,
-		azopenai.ChatMessage{
-			Role:    to.Ptr(azopenai.ChatRoleAssistant),
+		&azopenai.ChatRequestAssistantMessage{
 			Content: to.Ptr(response),
-		})
+		},
+	)
 
 	if len(conv.Messages) > c.pastMessagesIncluded && len(conv.Messages) > 3 {
 		// keep the system message, remove 2nd (user message) and 3rd (assistant response)
-		conv.Messages = append([]azopenai.ChatMessage{conv.Messages[0]}, conv.Messages[3:]...)
+		conv.Messages = append([]azopenai.ChatRequestMessageClassification{conv.Messages[0]}, conv.Messages[3:]...)
 	}
 }
